@@ -1,0 +1,90 @@
+"""
+Module for dealing with the PCAPs extracted data including both input and output operations.
+This involves finding the folders, loading them into pandas dataframes, saving them. 
+"""
+
+import logging
+from pathlib import Path
+import pandas as pd
+
+class DataIO:
+    def __init__(self, folder_path, csv_path, split, output_path):
+        self.folder_paths = self._get_folders(folder_path, csv_path, split)
+        self.output_path = output_path
+        
+        return
+    
+    def _get_folders(self, folder_path, csv_path, split):
+        """
+        Function should use csv and split if provided, otherwise use all folders in path
+        Should return a list of folders to be processed
+        """
+        # Get all subfolders in the input folder if csv_path not specified
+        if not csv_path:
+            return [p for p in folder_path.iterdir() if p.is_dir()]
+        
+        # Open csv to get folders to choose
+        folders_df = pd.read_csv(csv_path)
+        split_folders_df = folders_df[folders_df['split'] == split]
+        split_folder_names = split_folders_df['folder_name'].tolist()
+        
+        split_folder_paths = [folder_path / folder for folder in split_folder_names]
+        return split_folder_paths
+    
+    def _load_df(self, file_path):
+        """Loads the gateway df file"""
+        if not file_path.is_file():
+            raise FileNotFoundError(f"CSV file not found at path: {file_path}")
+        
+        gateway_df = pd.read_csv(file_path)
+        if gateway_df.empty:
+            raise ValueError(f"CSV file at {file_path} is empty.")
+        
+        return gateway_df
+    
+    def _load_batches(self, file_name, batch_size):
+        """Returns an iterator of batches of dataframes"""
+    
+        for i in range(0, len(self.folder_paths), batch_size):
+            batch_folders = self.folder_paths[i: i + batch_size]
+            batch_dfs = [self._load_df(folder_name / file_name) for folder_name in batch_folders]
+            yield batch_dfs
+            
+    def load_gateway_batches(self, batch_size):
+        """Returns iterator to batches of gateway dfs"""
+        
+        return self._load_batches("proxy_conn.csv", batch_size)
+    
+    def load_bg_batches(self, batch_size):
+        """Returns iterator to batches of background dfs"""
+        
+        return self._load_batches("background_conn_labeled.csv", batch_size)
+    
+    def load_relay_batches(self, batch_size):
+        """Returns iterator to batches of relayed dfs"""
+        
+        return self._load_batches("relayed_conn_labeled.csv", batch_size)
+    
+    def _save_batch(self, data_dfs, prefix, feature_type, batch_num):
+        """Save a batch of data to CSV"""
+        if not data_dfs:
+            return
+        
+        batch_df = pd.concat(data_dfs)
+        self.output_path.mkdir(parents=True, exist_ok=True)
+        
+        output_file = self.output_path / f'{prefix}_{feature_type}_batch_{batch_num}.csv'
+        batch_df.to_csv(output_file, index=False)
+        logging.info(f"Saved {prefix} batch {batch_num} with {len(batch_df)} rows")
+        
+    def save_bg_batch(self, data_dfs, feature_type, batch_num):
+        """Save background batches of feature_type"""
+
+        return self._save_batch(data_dfs, "bg", feature_type, batch_num)
+    
+    def save_relay_batch(self, data_dfs, feature_type, batch_num):
+        """Save relay batches of feature_type"""
+        
+        return self._save_batch(data_dfs, "relay", feature_type, batch_num)
+
+    
