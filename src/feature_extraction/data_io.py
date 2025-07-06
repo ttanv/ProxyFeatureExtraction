@@ -37,8 +37,8 @@ class DataIO:
             raise FileNotFoundError(f"CSV file not found at path: {file_path}")
         
         gateway_df = pd.read_csv(file_path)
-        if gateway_df.empty:
-            raise ValueError(f"CSV file at {file_path} is empty.")
+        # if gateway_df.empty:
+        #     raise ValueError(f"CSV file at {file_path} is empty.")
         
         return gateway_df
     
@@ -50,20 +50,16 @@ class DataIO:
             batch_dfs = [self._load_df(folder_name / file_name) for folder_name in batch_folders]
             yield batch_dfs
             
-    def load_gateway_batches(self, batch_size):
-        """Returns iterator to batches of gateway dfs"""
+    def load_batches(self, batch_size):
+        """Returns an iterator, each iteration has batch of bg, relay, and gateway dfs"""
         
-        return self._load_batches("proxy_conn.csv", batch_size)
-    
-    def load_bg_batches(self, batch_size):
-        """Returns iterator to batches of background dfs"""
-        
-        return self._load_batches("background_conn_labeled.csv", batch_size)
-    
-    def load_relay_batches(self, batch_size):
-        """Returns iterator to batches of relayed dfs"""
-        
-        return self._load_batches("relayed_conn_labeled.csv", batch_size)
+        for i in range(0, len(self.folder_paths), batch_size):
+            batch_folders = self.folder_paths[i: i + batch_size]
+            gateway_batch_folders = [self._load_df(folder_name / "proxy_conn.csv") for folder_name in batch_folders]
+            relay_batch_folders = [self._load_df(folder_name / "relayed_conn_labeled.csv") for folder_name in batch_folders]
+            bg_batch_folders = [self._load_df(folder_name / "background_conn_labeled.csv") for folder_name in batch_folders]
+            
+            yield bg_batch_folders, relay_batch_folders, gateway_batch_folders
     
     def _save_batch(self, data_dfs, prefix, feature_type, batch_num):
         """Save a batch of data to CSV"""
