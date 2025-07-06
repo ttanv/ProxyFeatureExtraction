@@ -1,1 +1,9 @@
+# unwanted artifacts
 .vscode
+src/feature_extraction/__pycache__
+src/feature_extraction/extractors/__pycache__
+tests/__pycache__
+
+# results, shouldn't be uploaded
+results
+
