@@ -16,8 +16,8 @@ class CorrFeatureExtractor(BaseFeatureExtractor):
     Class for the implementation of the correlation feature
     """
     def __init__(self, conn_df, gateway_df):
-        if gateway_df is None:
-            raise ValueError("Gateway dataframe must be present for correlation based extraction")
+        if gateway_df is None or conn_df is None:
+            raise ValueError("Gateway df and connection df must be present for correlation based extraction")
         
         super().__init__("corr_feature", conn_df, gateway_df)
     
@@ -48,7 +48,7 @@ class CorrFeatureExtractor(BaseFeatureExtractor):
             corr_median, corr_minimum, corr_maximum, 
             corr_range, corr_variance, corr_std_dev
         )
-            
+    
     
     def _process_single_connection(self, conn_val, df_binned, gateway_binned, 
                                    gateway_time_bins, minmax_map):
