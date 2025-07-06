@@ -63,7 +63,8 @@ def test_load_gateway_batches(test_data_dir):
     data_io = DataIO(test_data_dir, None, None, output_dir)
     
     batch_size = 2
-    batches = list(data_io.load_gateway_batches(batch_size))
+    batches = list(data_io.load_batches(batch_size))
+    batches = [z for (x, y, z) in batches]
     
     assert len(batches) == 2  # Should have 2 batches (2 folders + 1 folder)
     assert len(batches[0]) == 2  # First batch should have 2 DataFrames
