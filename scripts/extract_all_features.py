@@ -75,9 +75,9 @@ def main():
             raise ValueError("Missing some args or issue with loading yaml config file")
     
     # Create datasets
-    train_data = DataIO(folder_path, csv_path, "train", output_path)
-    test_data = DataIO(folder_path, csv_path, "test", output_path) 
-    val_data = DataIO(folder_path, csv_path, "val", output_path) 
+    train_data = DataIO(folder_path, csv_path, "train", output_path / "train")
+    test_data = DataIO(folder_path, csv_path, "test", output_path / "test") 
+    val_data = DataIO(folder_path, csv_path, "val", output_path / "val") 
     
     # Create preprocessing object
     data_processor = DataProcessor(background_distributions_path)
@@ -85,8 +85,13 @@ def main():
     # Process each split
     logging.info("Created DataIO and DataProcessor objects")
     process_split(train_data, data_processor, batch_size, pkt_limit)
+    logging.info("Finished processing train data")
+    
     process_split(test_data, data_processor, batch_size, pkt_limit)
+    logging.info("Finished processing test data")
+    
     process_split(val_data, data_processor, batch_size, pkt_limit)
+    logging.info("Finsihed processing val data")
 
 
 if __name__ == "__main__":
