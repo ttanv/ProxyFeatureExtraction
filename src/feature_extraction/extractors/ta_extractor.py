@@ -58,9 +58,6 @@ class TAFeatureExtractor(BaseFeatureExtractor):
         
         if 'conn' in features_host.columns and not features_k_final.empty:
             merged_df = pd.merge(features_host, features_k_final, on='conn', how='inner')
-            # TODO: Fix this labeling thing, the label should be give in script file
-            # merged_df['pcap_nb'] = Path(folder_path).name # More robust way to get folder name
-            # merged_df['label'] = int(prefix == "relayed")
             return merged_df
 
         return None
