@@ -278,13 +278,14 @@ class SLTExtractor(BaseFeatureExtractor):
             print(f"Error in feature extraction: {e}")
             return None
     
-    def process_df(self):
+    def process_df(self, pkt_limit=20):
         """
         Goes through each conn in df and applies desired changes
         """
         df_list = []
         for conn, conn_data in self.conn_df.groupby('conn'):
             # Get features for each conn
+            conn_data = conn_data.head(pkt_limit)
             conn_features: Optional[List[float]] = self.extract_features(conn_data)
             if not conn_features:
                 continue

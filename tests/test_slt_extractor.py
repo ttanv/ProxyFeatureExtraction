@@ -78,4 +78,53 @@ def test_connection_with_few_packets(sample_data):
     
     # Check that the features for the short connection are not all NaN
     short_conn_features = result_df[result_df['conn'] == 'conn3']
-    assert not short_conn_features.isnull().values.all() 
+    assert not short_conn_features.isnull().values.all()
+
+def test_pkt_limit_respected(sample_data):
+    """
+    Test that process_df(pkt_limit) only considers the first pkt_limit packets per connection,
+    and does not use all packets for connections with more than pkt_limit packets.
+    """
+    pkt_limit = 25
+
+    # Run with pkt_limit=10 (should use only first 10 packets per connection)
+    extractor_limit = SLTExtractor(conn_df=sample_data)
+    result_limit = extractor_limit.process_df(pkt_limit=pkt_limit).sort_values('conn').reset_index(drop=True)
+
+    # Run with pkt_limit=100 (should use all packets, since all conns < 100 packets)
+    extractor_all = SLTExtractor(conn_df=sample_data)
+    result_all = extractor_all.process_df(pkt_limit=100).sort_values('conn').reset_index(drop=True)
+
+    # For connections with more than pkt_limit packets, the results should differ
+    # For connections with less than pkt_limit packets, they should be filtered out or match
+    common_conns = set(result_limit['conn']).intersection(set(result_all['conn']))
+    x, y = 0, 0
+    for conn in common_conns:
+        row_limit = result_limit[result_limit['conn'] == conn].iloc[0]
+        row_all = result_all[result_all['conn'] == conn].iloc[0]
+        # At least one metric should differ for connections with more than pkt_limit packets
+        # (since the data is random, this is a robust check)
+        # Exclude 'conn' column
+        metrics = [col for col in result_limit.columns if col != 'conn']
+
+        values_limit = pd.to_numeric(row_limit[metrics], errors='coerce').values
+        values_all = pd.to_numeric(row_all[metrics], errors='coerce').values
+
+        
+        # If the connection has more than pkt_limit packets, the results should differ
+        if (sample_data['conn'] == conn).sum() > pkt_limit:
+            x += 1
+            assert not np.allclose(
+                values_limit, values_all, equal_nan=True
+            ), f"Metrics should differ for conn={conn} when pkt_limit is enforced"
+        else:
+            y += 1
+            # If the count is the same, all metrics should match
+            np.testing.assert_allclose(
+                values_limit, values_all, atol=1e-5, equal_nan=True
+            )
+            
+    assert x != 0
+    assert y != 0
+
+
