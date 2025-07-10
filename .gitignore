@@ -7,3 +7,6 @@ tests/__pycache__
 # results, shouldn't be uploaded
 results
 
+# extracted data should not be uploaded
+data/**
+
