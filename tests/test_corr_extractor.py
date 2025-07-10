@@ -195,3 +195,53 @@ def test_no_overlapping_traffic():
     for col in result_df.columns:
         if col != 'conn':
             assert np.allclose(result_df[col], 0)
+            
+            
+def test_pkt_limit_respected(sample_data):
+    """
+    Test that process_df(pkt_limit) only considers the first pkt_limit packets per connection,
+    and does not use all packets for connections with more than pkt_limit packets.
+    """
+    conn_cudf, gateway_cudf = sample_data
+    pkt_limit = 25
+
+    # Run with pkt_limit=20 (should use only first 20 packets per connection)
+    extractor_limit = CorrFeatureExtractor(conn_df=conn_cudf, gateway_df=gateway_cudf)
+    result_limit = extractor_limit.process_df(pkt_limit=pkt_limit).sort_values('conn').reset_index(drop=True)
+
+    # Run with pkt_limit=100 (should use all packets, since all conns < 100 packets)
+    extractor_all = CorrFeatureExtractor(conn_df=conn_cudf, gateway_df=gateway_cudf)
+    result_all = extractor_all.process_df(pkt_limit=100).sort_values('conn').reset_index(drop=True)
+
+    # For connections with more than pkt_limit packets, the results should differ
+    # For connections with less than pkt_limit packets, they should be filtered out
+    # So, compare only connections present in both results
+    common_conns = set(result_limit['conn']).intersection(set(result_all['conn']))
+    x, y = 0, 0
+    for conn in common_conns:
+        row_limit = result_limit[result_limit['conn'] == conn].iloc[0]
+        row_all = result_all[result_all['conn'] == conn].iloc[0]
+        # At least one metric should differ for connections with more than pkt_limit packets
+        # (since the data is random, this is a robust check)
+        metrics = ['corr_count', 'corr_sum', 'corr_mean', 'corr_median',
+                    'corr_minimum', 'corr_maximum', 'corr_range', 'corr_variance', 'corr_std_dev']
+
+        # Convert slices to numeric, coercing any errors, before getting values
+        values_limit = pd.to_numeric(row_limit[metrics], errors='coerce').values
+        values_all = pd.to_numeric(row_all[metrics], errors='coerce').values
+        
+        # If the connection has more than pkt_limit packets, the counts should differ
+        if row_all['corr_count'] != row_limit['corr_count']:
+            x += 1
+            assert not np.allclose(
+                values_limit, values_all
+            ), f"Metrics should differ for conn={conn} when pkt_limit is enforced"
+        else:
+            y += 1
+            # If the count is the same, all metrics should match
+            np.testing.assert_allclose(
+                values_limit, values_all, atol=1e-5
+            )
+    assert x != 0
+    assert y != 0
+            
