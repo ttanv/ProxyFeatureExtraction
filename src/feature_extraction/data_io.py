@@ -61,6 +61,21 @@ class DataIO:
             
             yield bg_batch_folders, relay_batch_folders, gateway_batch_folders
     
+    def load_batch_paths(self, batch_size):
+        """
+        Returns an iterator, each iteration has a batch of bg, relay, gateway df paths, 
+        and their corresponding folder names.
+        """
+        
+        for i in range(0, len(self.folder_paths), batch_size):
+            batch_folders = self.folder_paths[i: i + batch_size]
+            folder_names = [folder.name for folder in batch_folders]
+            gateway_batch_paths = [folder_name / "proxy_conn.csv" for folder_name in batch_folders]
+            relay_batch_paths = [folder_name / "relayed_conn_labeled.csv" for folder_name in batch_folders]
+            bg_batch_paths = [folder_name / "background_conn_labeled.csv" for folder_name in batch_folders]
+            
+            yield bg_batch_paths, relay_batch_paths, gateway_batch_paths, folder_names
+    
     def _save_batch(self, data_dfs, prefix, feature_type, batch_num):
         """Save a batch of data to CSV"""
         if not data_dfs:

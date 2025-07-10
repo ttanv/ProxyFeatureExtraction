@@ -3,22 +3,59 @@ import logging
 from pathlib import Path
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
+import pandas as pd
+from functools import partial
 from feature_extraction.data_io import DataIO
 from feature_extraction.preprocessing import DataProcessor
 from feature_extraction.extractors.corr_extractor import CorrFeatureExtractor
 from feature_extraction.extractors.ta_extractor import TAFeatureExtractor
+
+def _load_df(file_path: Path):
+    """Loads a dataframe from a CSV file."""
+    if not file_path.is_file():
+        # Log or handle the error as appropriate for your application
+        logging.error(f"CSV file not found at path: {file_path}")
+        return None  # Or raise an exception
+    return pd.read_csv(file_path)
 
 def worker(args):
     """
     Worker function to process one set of dataframes.
     This function is executed in a separate process.
     """
-    i, bg_df, relay_df, gateway_df, pkt_limit, background_distributions_path = args
-    logging.info(f"Worker processing item: {i}")
+    # tp parameters
+    n_packets_to_pad = 15
+    pad_size = 50
+    # ip parameters
+    n_packets_to_jitter = 15
+    max_delay_s = 0.02
+    
+    i, bg_df_path, relay_df_path, gateway_df_path, pkt_limit, background_distributions_path, folder_name = args
+    logging.info(f"Worker processing item: {i} from folder {folder_name}")
+
+    # Load dataframes from paths
+    bg_df = _load_df(bg_df_path)
+    relay_df = _load_df(relay_df_path)
+    gateway_df = _load_df(gateway_df_path)
+
+    # If any dataframe failed to load, skip processing
+    if bg_df is None or relay_df is None or gateway_df is None:
+        logging.warning(f"Skipping processing for item {i} due to missing data.")
+        return None
 
     # Initialize processor within the worker to avoid serialization issues
-    data_processor = DataProcessor(background_distributions_path)
-    change_func_list = [data_processor.apply_bias_removal, data_processor.apply_attack]
+    data_processor = DataProcessor(background_distributions_path)    
+    
+    # Create partials for attack functions
+    padding_attack = partial(data_processor.apply_targeted_padding, 
+                             n_packets_to_pad=n_packets_to_pad, 
+                             pad_size=pad_size)
+    
+    ipd_jitter_attack = partial(data_processor.apply_ipd_jitter, 
+                                n_packets_to_jitter=n_packets_to_jitter, 
+                                max_delay_s=max_delay_s)
+    
+    change_func_list = [data_processor.apply_bias_removal]
 
     # Apply necessary changes
     bg_df_changed = data_processor.apply_changes(bg_df, pkt_limit, change_func_list)
@@ -33,6 +70,11 @@ def worker(args):
     bg_ta_df = TAFeatureExtractor(bg_df_changed).process_df(pkt_limit)
     relay_ta_df = TAFeatureExtractor(relay_df_changed).process_df(pkt_limit)
     
+    # Add folder_name column to all resulting dataframes
+    for df in [bg_ta_df, relay_ta_df, bg_corr_df, relay_corr_df]:
+        if df is not None and not df.empty:
+            df['folder_name'] = folder_name
+            
     # Return a dictionary of results
     return {
         "bg_ta": bg_ta_df,
@@ -41,15 +83,18 @@ def worker(args):
         "relay_corr": relay_corr_df,
     }
 
-def process_batch(batch_num, bg_batch, relay_batch, gateway_batch, 
-                  data_io: DataIO, pkt_limit, background_distributions_path):
+def process_batch(batch_num, bg_batch_paths, relay_batch_paths, gateway_batch_paths, 
+                  folder_names_batch, data_io: DataIO, pkt_limit, background_distributions_path):
     """
     Processes a batch of dataframes in parallel.
     """
     tasks = []
-    for i in range(len(bg_batch)):
+    for i in range(len(bg_batch_paths)):
         # Package all arguments for the worker function
-        tasks.append((i, bg_batch[i], relay_batch[i], gateway_batch[i], pkt_limit, background_distributions_path))
+        tasks.append((
+            i, bg_batch_paths[i], relay_batch_paths[i], gateway_batch_paths[i], 
+            pkt_limit, background_distributions_path, folder_names_batch[i]
+        ))
 
     # Lists to store results from workers
     bg_ta_dfs, relay_ta_dfs, bg_corr_dfs, relay_corr_dfs = [], [], [], []
@@ -60,6 +105,8 @@ def process_batch(batch_num, bg_batch, relay_batch, gateway_batch,
         
         # Process results as they are returned by the workers
         for result in results:
+            if result is None:
+                continue
             bg_ta_dfs.append(result["bg_ta"])
             relay_ta_dfs.append(result["relay_ta"])
             bg_corr_dfs.append(result["bg_corr"])
@@ -75,11 +122,14 @@ def process_batch(batch_num, bg_batch, relay_batch, gateway_batch,
 
 def process_split(split_data_io, batch_size, pkt_limit, background_distributions_path):
     """Processes a specific data split (train, test, or val)."""
-    batch_iterator = split_data_io.load_batches(batch_size)
+    batch_iterator = split_data_io.load_batch_paths(batch_size)
     
-    for i, (bg_batch, relay_batch, gateway_batch) in enumerate(batch_iterator):
+    for i, (bg_batch, relay_batch, gateway_batch, folder_names) in enumerate(batch_iterator):
         logging.info(f"Starting batch number: {i}")
-        process_batch(i, bg_batch, relay_batch, gateway_batch, split_data_io, pkt_limit, background_distributions_path)
+        process_batch(
+            i, bg_batch, relay_batch, gateway_batch, folder_names, 
+            split_data_io, pkt_limit, background_distributions_path
+        )
         
 
 def main():
