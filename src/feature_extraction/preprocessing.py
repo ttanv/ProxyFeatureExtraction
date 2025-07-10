@@ -68,11 +68,14 @@ class DataProcessor:
 
         return group
 
-    def apply_attack(self, group):
+    def apply_decorrelation_attack(self, group):
         """
         Applies timing attack modification to the group
         """
         if len(group) > 3:
+            if self.bg_tg_mean is None or self.bg_tg_std is None:
+                raise ValueError("Background timing distribution parameters are required for decorrelation attack.")
+            
             new_timing = np.random.lognormal(
                 mean=self.bg_tg_mean,
                 sigma=self.bg_tg_std
@@ -86,6 +89,109 @@ class DataProcessor:
             group.loc[mask, 'ts_relative'] = group.loc[mask, 'ts_relative'] - timing_adjustment
 
         return group
+    
+    
+    def apply_targeted_padding(self, group, n_packets_to_pad, pad_size):
+        """
+        Applies padding to the first `n_packets_to_pad` packets in the flow.
+        A random amount of padding between 1 and `pad_size` is added.
+        """
+        # Determine the number of packets to pad (up to the limit or flow length)
+        num_to_pad = min(len(group), n_packets_to_pad)
+        
+        if num_to_pad == 0:
+            return group
+
+        # Get the indices of the first `num_to_pad` packets
+        target_indices = group.index[:num_to_pad]
+        
+        # Generate random padding values for each target packet
+        padding_values = np.random.randint(1, pad_size + 1, size=num_to_pad)
+        
+        # Add the padding to the 'pkt_len' of the targeted packets
+        group.loc[target_indices, 'pkt_len'] += padding_values
+        
+        return group
+    
+    def apply_ipd_jitter(self, group, n_packets_to_jitter, max_delay_s):
+        """
+        Applies random timing jitter between the first `n_packets_to_jitter` packets.
+        """
+        # Determine how many packets' timestamps we will adjust
+        num_to_jitter = min(len(group) -1, n_packets_to_jitter)
+        
+        if num_to_jitter <= 0:
+            return group
+
+        # Iterate through the packets and apply a delay that affects all subsequent packets
+        for i in range(num_to_jitter):
+            # Generate a random delay for the current packet
+            jitter = np.random.uniform(0, max_delay_s)
+            
+            # Get the index of the packet *after which* the delay will be added
+            packet_idx = group.index[i]
+            
+            # Apply the delay to all subsequent packets' timestamps
+            mask = group.index > packet_idx
+            group.loc[mask, 'ts_relative'] += jitter
+            
+        return group
+    
+    
+    def apply_packet_reshaping(self, group: pd.DataFrame,
+                           split_threshold: int = 1000,
+                           max_splits: int = 3,
+                           min_pkt_size: int = 128) -> pd.DataFrame:
+        """
+        Structural obfuscation: split oversized packets into several
+        random-length segments, preserving total bytes and order.
+
+        Parameters
+        ----------
+        group : pd.DataFrame
+            One bidirectional flow with columns ['pkt_len', 'ts_relative', ...].
+        split_threshold : int
+            Packets larger than this are candidates for splitting (bytes).
+        max_splits : int
+            Upper bound on how many pieces a single packet may become.
+        min_pkt_size : int
+            Smallest allowed segment size (bytes).
+
+        Returns
+        -------
+        pd.DataFrame
+            New flow with reshaped packet lengths and timestamps.
+        """
+        new_rows = []
+        indices_to_drop = []
+
+        for idx, row in group.iterrows():
+            plen = row['pkt_len']
+            if plen > split_threshold:
+                indices_to_drop.append(idx)
+                ts0 = row['ts_relative']
+
+                # choose 2 … max_splits pieces
+                k = np.random.randint(2, max_splits + 1)
+
+                # random Dirichlet split, enforce minimum size
+                shares = np.random.dirichlet(np.ones(k))
+                seg_lengths = np.maximum(
+                    np.round(shares * (plen - k * min_pkt_size)).astype(int) + min_pkt_size,
+                    min_pkt_size
+                )
+                seg_lengths[-1] = plen - seg_lengths[:-1].sum()  # byte conservation
+
+                for i, slen in enumerate(seg_lengths):
+                    new_row = row.copy()
+                    new_row['pkt_len'] = int(slen)
+                    new_row['ts_relative'] = ts0 + i * 1e-6  # preserve order
+                    new_rows.append(new_row)
+            else:
+                new_rows.append(row)
+
+        reshaped = pd.DataFrame(new_rows).sort_values('ts_relative').reset_index(drop=True)
+        return reshaped
 
 
     def apply_changes(self, df, pkt_limit, attack_func_list):
