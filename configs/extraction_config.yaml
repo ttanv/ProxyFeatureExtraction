@@ -6,31 +6,37 @@ background_distributions_path: "configs/background_distributions.json"
 output_path: "results"
 
 experiments:
-  - name: "ta_baseline"
-    feature_extractor: "TAFeatureExtractor"
+  # - name: "ta_baseline"
+  #   feature_extractor: "TAFeatureExtractor"
+  #   attacks:
+  #     - name: "apply_bias_removal"
+  #       params: {}
+
+  # - name: "corr_baseline"
+  #   feature_extractor: "CorrFeatureExtractor"
+  #   extractor_params:
+  #     requires_gateway_df: true
+  #   attacks:
+  #     - name: "apply_bias_removal"
+  #       params: {}
+
+  # - name: "ta_padding"
+  #   feature_extractor: "TAFeatureExtractor"
+  #   attacks:
+  #     - name: "apply_bias_removal"
+  #       params: {}
+  #     - name: "apply_targeted_padding"
+  #       params:
+  #         n_packets_to_pad: 15
+  #         pad_size: 50
+
+  - name: "slt_baseline"
+    feature_extractor: "SLTFeatureExtractor"
     attacks:
       - name: "apply_bias_removal"
         params: {}
 
-  - name: "corr_baseline"
-    feature_extractor: "CorrFeatureExtractor"
-    extractor_params:
-      requires_gateway_df: true
-    attacks:
-      - name: "apply_bias_removal"
-        params: {}
-
-  - name: "ta_padding"
-    feature_extractor: "TAFeatureExtractor"
-    attacks:
-      - name: "apply_bias_removal"
-        params: {}
-      - name: "apply_targeted_padding"
-        params:
-          n_packets_to_pad: 15
-          pad_size: 50
-
-  - name: "slt_ipd_jitter"
+  - name: "slt_ipd"
     feature_extractor: "SLTFeatureExtractor"
     attacks:
       - name: "apply_bias_removal"
@@ -39,3 +45,56 @@ experiments:
         params:
           n_packets_to_jitter: 15
           max_delay_s: 0.02 
+
+  - name: "slt_tp"
+    feature_extractor: "SLTFeatureExtractor"
+    attacks:
+      - name: "apply_bias_removal"
+        params: {}
+      - name: "apply_targeted_padding"
+        params:
+          n_packets_to_pad: 15
+          pad_size: 50 
+
+  - name: "slt_pr"
+    feature_extractor: "SLTFeatureExtractor"
+    attacks:
+      - name: "apply_bias_removal"
+        params: {}
+      - name: "apply_packet_reshaping"
+        params: {}
+
+
+  - name: "thesis_baseline"
+    feature_extractor: "ThesisFeatureExtractor"
+    attacks:
+      - name: "apply_bias_removal"
+        params: {}
+
+  - name: "thesis_ipd"
+    feature_extractor: "ThesisFeatureExtractor"
+    attacks:
+      - name: "apply_bias_removal"
+        params: {}
+      - name: "apply_ipd_jitter"
+        params:
+          n_packets_to_jitter: 15
+          max_delay_s: 0.02 
+
+  - name: "thesis_tp"
+    feature_extractor: "ThesisFeatureExtractor"
+    attacks:
+      - name: "apply_bias_removal"
+        params: {}
+      - name: "apply_targeted_padding"
+        params:
+          n_packets_to_pad: 15
+          pad_size: 50 
+
+  - name: "thesis_pr"
+    feature_extractor: "ThesisFeatureExtractor"
+    attacks:
+      - name: "apply_bias_removal"
+        params: {}
+      - name: "apply_packet_reshaping"
+        params: {}
