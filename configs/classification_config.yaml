@@ -1,0 +1,53 @@
+# configs/classification_config.yaml
+
+# The main script will use this config to run the classification experiment.
+
+# 'xgboost', 'cnn', or 'transformer'
+model_type: 'xgboost'
+
+data:
+  # Path to the input CSV file or directory of CSVs
+  # This data is expected to be the output of the feature extraction step.
+  input_path: 'data/'
+  # Where to save outputs like trained models or evaluation results
+  output_dir: 'results/classification/'
+  test_size: 0.2
+  random_state: 42
+  feature: "slt"
+
+# Parameters for preprocessing, if any.
+# These would be passed to the functions from src.feature_extraction.preprocessing
+preprocessing:
+  apply_attacks: false
+  attack_params:
+    # Example attack
+    packet_loss_rate: 0.05
+
+training:
+  # General training parameters
+  epochs: 50
+  batch_size: 32
+  learning_rate: 0.001
+
+  # Model-specific hyperparameters
+  # The script will only use the section corresponding to 'model_type'
+  xgboost_params:
+    n_estimators: 300
+    max_depth: 8
+    learning_rate: 0.1
+    random_state: 0
+
+  cnn_params:
+    in_channels: 1
+    num_classes: 10 # Example: number of classes to predict
+    sequence_length: 1500 # Example: length of input sequences for the CNN
+
+  transformer_params:
+    input_dim: 128 # Example embedding dimension
+    num_heads: 8
+    num_encoder_layers: 6
+    num_classes: 10 # Example: number of classes to predict
+    sequence_length: 1500 # Example: length of input sequences
+
+evaluation:
+  metrics: ['accuracy', 'f1_score_macro', 'precision_macro', 'recall_macro'] 
