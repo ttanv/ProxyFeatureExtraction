@@ -8,7 +8,6 @@ from functools import partial
 
 from feature_extraction.data_io import DataIO
 from feature_extraction.preprocessing import DataProcessor
-from feature_extraction.extractors.base_extractor import BaseFeatureExtractor
 from feature_extraction.extractors.corr_extractor import CorrFeatureExtractor
 from feature_extraction.extractors.ta_extractor import TAFeatureExtractor
 from feature_extraction.extractors.slt_extractor import SLTExtractor
@@ -21,6 +20,15 @@ EXTRACTOR_MAPPING = {
     "TAFeatureExtractor": TAFeatureExtractor,
     "SLTFeatureExtractor": SLTExtractor, 
     "ThesisFeatureExtractor": ThesisExtractor,
+}
+
+# Mapping of attack keys (from config) to DataProcessor method names
+ATTACK_FUNC_MAPPING = {
+    "baseline": "apply_bias_removal",
+    "decorr": "apply_decorrelation_attack",
+    "ipd": "apply_ipd_jitter", 
+    "pr": "apply_packet_reshaping",
+    "tp": "apply_target_padding"
 }
 
 def _load_df(file_path: Path):
@@ -51,19 +59,20 @@ def worker(args):
 
     data_processor = DataProcessor(background_distributions_path)    
     
-    # Dynamically create the list of attack functions
+    # Dynamically create the list of attack functions using ATTACK_FUNC_MAPPING
     change_func_list = []
     for attack_config in experiment_config.get('attacks', []):
-        attack_name = attack_config['name']
+        attack_key = attack_config['name']
         params = attack_config.get('params', {})
-        if hasattr(data_processor, attack_name):
-            func = getattr(data_processor, attack_name)
+        method_name = ATTACK_FUNC_MAPPING.get(attack_key)
+        if method_name and hasattr(data_processor, method_name):
+            func = getattr(data_processor, method_name)
             if params:
                 change_func_list.append(partial(func, **params))
             else:
                 change_func_list.append(func)
         else:
-            logging.warning(f"Attack function '{attack_name}' not found in DataProcessor. Skipping.")
+            logging.warning(f"Attack function for key '{attack_key}' not found in ATTACK_FUNC_MAPPING or DataProcessor. Skipping.")
 
     # Apply changes
     bg_df_changed = data_processor.apply_changes(bg_df, pkt_limit, change_func_list)
@@ -153,10 +162,7 @@ def main():
     for p in [folder_path, csv_path, background_distributions_path, output_path]:
         if not str(p) or str(p) == ".":
             raise ValueError(f"Missing path configuration for: {p}")
-    
-    train_data_io = DataIO(folder_path, csv_path, "train", output_path / "train")
-    test_data_io = DataIO(folder_path, csv_path, "test", output_path / "test") 
-    val_data_io = DataIO(folder_path, csv_path, "val", output_path / "val")
+
     
     experiments = config.get("experiments", [])
     if not experiments:
@@ -165,6 +171,12 @@ def main():
         
     for exp_config in experiments:
         logging.info(f"===== Starting Experiment: {exp_config['name']} =====")
+        
+        # Save based on experiment last attack name
+        last_attack_name = exp_config.get("attacks")[-1]['name']
+        train_data_io = DataIO(folder_path, csv_path, "train", output_path / last_attack_name / "train")
+        test_data_io = DataIO(folder_path, csv_path, "test", output_path / last_attack_name / "test") 
+        val_data_io = DataIO(folder_path, csv_path, "val", output_path / last_attack_name / "val")
         
         # Process each split for the current experiment
         for split_name, data_io in [("train", train_data_io), ("test", test_data_io), ("val", val_data_io)]:
@@ -181,4 +193,4 @@ if __name__ == "__main__":
         logging.info("Set multiprocessing start method to 'spawn'.")
     except RuntimeError:
         pass  # It's safe to ignore if the start method has already been set.
-    main() 
+    main()
