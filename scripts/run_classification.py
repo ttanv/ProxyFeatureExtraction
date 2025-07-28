@@ -8,7 +8,7 @@ import pprint
 import pandas as pd
 
 from classification.data import get_data
-from classification.models import XGBoostClassifier, SimpleCNN, SimpleTransformer
+from classification.models import XGBoostClassifier, SimpleCNN, SimpleTransformerClassifier
 from classification.train import train_model
 from classification.evaluate import evaluate_model
 
@@ -47,7 +47,7 @@ def main(config_path: str):
     
     elif model_type == 'transformer':
         params = config['training']['transformer_params']
-        model = SimpleTransformer(
+        model = SimpleTransformerClassifier(
             input_dim=params['input_dim'],
             num_heads=params['num_heads'],
             num_encoder_layers=params['num_encoder_layers'],

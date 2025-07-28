@@ -8,12 +8,14 @@ model_type: 'xgboost'
 data:
   # Path to the input CSV file or directory of CSVs
   # This data is expected to be the output of the feature extraction step.
-  input_path: 'data/'
+  input_path: 'data_2/baseline'
   # Where to save outputs like trained models or evaluation results
   output_dir: 'results/classification/'
   test_size: 0.2
   random_state: 42
-  feature: "slt"
+  feature: "ta"
+  feature_2: "corr"
+  use_br: true
 
 # Parameters for preprocessing, if any.
 # These would be passed to the functions from src.feature_extraction.preprocessing
@@ -48,6 +50,3 @@ training:
     num_encoder_layers: 6
     num_classes: 10 # Example: number of classes to predict
     sequence_length: 1500 # Example: length of input sequences
-
-evaluation:
-  metrics: ['accuracy', 'f1_score_macro', 'precision_macro', 'recall_macro'] 
