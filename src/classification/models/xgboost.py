@@ -12,6 +12,11 @@ class XGBoostClassifier:
             params (dict): A dictionary of hyperparameters for the XGBoost model.
         """
         self.model = xgb.XGBClassifier(**params)
+        
+    @property
+    def feature_importances_(self):
+        """Exposes the feature importances from the underlying XGBoost model."""
+        return self.model.feature_importances_
 
     def fit(self, *args, **kwargs):
         """Trains the model."""
