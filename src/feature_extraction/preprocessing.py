@@ -64,6 +64,7 @@ class DataProcessor:
                 new_length = np.random.normal(loc=mean_, scale=std_)
                 new_length = max(1, int(round(new_length)))
 
+            logging.info("Updated pkt_len to remove bias")
             group.at[group.index[3], 'pkt_len'] = new_length
 
         return group

@@ -64,7 +64,7 @@ class DataIO:
     def load_batch_paths(self, batch_size):
         """
         Returns an iterator, each iteration has a batch of bg, relay, gateway df paths, 
-        and their corresponding folder names.
+        and their corresponding folder names. More useful for parallelized workflows
         """
         
         for i in range(0, len(self.folder_paths), batch_size):
