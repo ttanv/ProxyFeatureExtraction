@@ -22,12 +22,31 @@ def get_full_df(feature_type: str, path: Path):
     
     return pd.concat([bg_df, rl_df])
 
-def get_feature_splits(feature_type: str, path: Path):
-    train_df = get_full_df(feature_type, path / "train")
-    test_df = get_full_df(feature_type, path / "test")
-    val_df = get_full_df(feature_type, path / "val")
+def get_feature_splits(feature_type: str, feature_type_2: str, path: Path, use_br: bool):
+    # In case we are only dealing with a single feature
+    train_path = Path('data/br') if use_br else path
+    if feature_type_2 == '':
+        train_df = get_full_df(feature_type, train_path / 'train')
+        test_df = get_full_df(feature_type, path / "test")
+        val_df = get_full_df(feature_type, path / "val")
     
+        return train_df, test_df, val_df
+    
+    train_feature_1_df = get_full_df(feature_type, train_path / 'train')
+    test_feature_1_df = get_full_df(feature_type, path / "test")
+    val_feature_1_df = get_full_df(feature_type, path / "val")
+    
+    train_feature_2_df = get_full_df(feature_type_2, train_path / 'train')
+    test_feature_2_df = get_full_df(feature_type_2, path / "test")
+    val_feature_2_df = get_full_df(feature_type_2, path / "val")
+    
+    train_df = pd.merge(train_feature_1_df, train_feature_2_df.drop(columns=['label']), on=['folder_name', 'conn'])
+    test_df = pd.merge(test_feature_1_df, test_feature_2_df.drop(columns=['label']), on=['folder_name', 'conn'])
+    val_df = pd.merge(val_feature_1_df, val_feature_2_df.drop(columns=['label']), on=['folder_name', 'conn'])
+
     return train_df, test_df, val_df
+    
+    
 
 def get_data(config: dict):
     """
@@ -36,7 +55,9 @@ def get_data(config: dict):
     print("Loading data...")
     # Load the data from csvs
     input_path = config['data']['input_path']
-    train_df, test_df, val_df = get_feature_splits(config['data']['feature'], Path(input_path))    
+    use_br = config['data']['use_br']
+    feature_2 = config['data'].get('feature_2', '')
+    train_df, test_df, val_df = get_feature_splits(config['data']['feature'], feature_2, Path(input_path), use_br)    
 
     # 2. (Optional) Apply attacks using your existing preprocessing module
     # if config['preprocessing']['apply_attacks']:
