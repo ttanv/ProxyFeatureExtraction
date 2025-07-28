@@ -24,11 +24,11 @@ EXTRACTOR_MAPPING = {
 
 # Mapping of attack keys (from config) to DataProcessor method names
 ATTACK_FUNC_MAPPING = {
-    "baseline": "apply_bias_removal",
     "decorr": "apply_decorrelation_attack",
+    "br": "apply_bias_removal",
     "ipd": "apply_ipd_jitter", 
     "pr": "apply_packet_reshaping",
-    "tp": "apply_target_padding"
+    "tp": "apply_targeted_padding"
 }
 
 def _load_df(file_path: Path):
@@ -63,6 +63,14 @@ def worker(args):
     change_func_list = []
     for attack_config in experiment_config.get('attacks', []):
         attack_key = attack_config['name']
+        
+        # For baseline case
+        if attack_key == "baseline":
+            change_func_list.append(getattr(data_processor, "apply_bias_removal"))
+            change_func_list.append(getattr(data_processor, "apply_decorrelation_attack"))
+            continue
+        
+        # For other attacks
         params = attack_config.get('params', {})
         method_name = ATTACK_FUNC_MAPPING.get(attack_key)
         if method_name and hasattr(data_processor, method_name):
@@ -75,9 +83,14 @@ def worker(args):
             logging.warning(f"Attack function for key '{attack_key}' not found in ATTACK_FUNC_MAPPING or DataProcessor. Skipping.")
 
     # Apply changes
-    bg_df_changed = data_processor.apply_changes(bg_df, pkt_limit, change_func_list)
+    # bg_df_changed = data_processor.apply_changes(bg_df, pkt_limit, change_func_list)
+    bg_df_changed = bg_df
     relay_df_changed = data_processor.apply_changes(relay_df, pkt_limit, change_func_list)
-    gateway_df_changed = data_processor.apply_changes(gateway_df, pkt_limit, change_func_list)
+    
+    if "decorr" in experiment_config.get('attacks', []):
+        gateway_df_changed = data_processor.apply_changes(gateway_df, pkt_limit, change_func_list[:1])
+    else:
+        gateway_df_changed = data_processor.apply_changes(gateway_df, pkt_limit, change_func_list)
 
     # Instantiate the feature extractor
     extractor_name = experiment_config['feature_extractor']
@@ -90,7 +103,7 @@ def worker(args):
 
     # Extract features for background and relay traffic
     # Handle CorrFeatureExtractor's unique signature
-    if extractor_params.get('requires_gateway_df'):
+    if extractor_name == "CorrFeatureExtractor":
         bg_extractor = extractor_class(bg_df_changed, gateway_df_changed)
         relay_extractor = extractor_class(relay_df_changed, gateway_df_changed)
     else:
@@ -173,7 +186,7 @@ def main():
         logging.info(f"===== Starting Experiment: {exp_config['name']} =====")
         
         # Save based on experiment last attack name
-        last_attack_name = exp_config.get("attacks")[-1]['name']
+        last_attack_name = "none" if exp_config.get("attacks", "") == "" else exp_config.get("attacks")[-1]['name']
         train_data_io = DataIO(folder_path, csv_path, "train", output_path / last_attack_name / "train")
         test_data_io = DataIO(folder_path, csv_path, "test", output_path / last_attack_name / "test") 
         val_data_io = DataIO(folder_path, csv_path, "val", output_path / last_attack_name / "val")

@@ -3,4 +3,4 @@ batch_size: 10
 pcap_folder_path: "../ProxyData/local_pcaps"
 csv_path: "~/Documents/ProxyData/subset_v2_info.csv"
 background_distributions_path: "configs/background_distributions.json"
-output_path: "results"
+output_path: "data/test"
