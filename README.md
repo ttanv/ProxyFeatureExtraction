@@ -6,22 +6,22 @@ A Python project for extracting and analyzing proxy-related features from datase
 
 ```
 ProxyFeatureExtraction/
-├── configs/                # Configuration files (YAML, JSON) for feature extraction
-├── scripts/                # Main scripts to run feature extraction
-│   ├── extract_all_features_parallel.py   # Main entry point (parallel execution)
-│   └── extract_all_features.py            # (Optional) Sequential version
+├── configs/                                    # Configuration files (YAML, JSON) for feature extraction
+├── scripts/                                    # Main scripts to run feature extraction
+│   ├── extract_all_features_parallel.py        # Main entry point (parallel execution)
+│   └── extract_all_features.py                 # (Optional) Sequential version
 ├── src/
 │   └── feature_extraction/
-│       ├── data_io.py                     # Data input/output utilities
-│       ├── preprocessing.py               # Data preprocessing functions
-│       └── extractors/                    # Feature extractor modules
+│       ├── data_io.py                          # Data input/output utilities
+│       ├── preprocessing.py                    # Data preprocessing functions
+│       └── extractors/                         # Feature extractor modules
 │           ├── base_extractor.py
 │           ├── corr_extractor.py
 │           ├── hayes_usenix2019_features.py
 │           ├── host_feature_helpers.py
 │           └── ta_extractor.py
-├── tests/                  # Unit tests for core modules
-└── temp/                   # Temporary files and test outputs
+├── tests/                                      # Unit tests for core modules
+└── temp/                                       # Temporary files and test outputs
 ```
 
 ## Getting Started
