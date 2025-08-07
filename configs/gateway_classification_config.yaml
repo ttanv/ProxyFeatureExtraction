@@ -1,0 +1,35 @@
+# configs/gateway_classification_config.yaml
+
+# Configuration for gateway classification experiments
+# Runs two experiments:
+# 1. Multi-class: gateway vs relay vs background  
+# 2. Binary: gateway vs (relay + background)
+
+# Model type - only XGBoost supported for these experiments
+model_type: 'xgboost'
+
+data:
+  # Output directory for results and models
+  output_dir: 'results/gateway_classification/'
+  # Feature types to use
+  feature: "ta"
+  # Data paths are hardcoded in the script:
+  # - Background & Relay: final_data/br/
+  # - Gateway: final_data/none/
+
+# Training parameters
+training:
+  # General training parameters (not used for XGBoost but kept for compatibility)
+  epochs: 50
+  batch_size: 32
+  learning_rate: 0.001
+
+  # XGBoost hyperparameters
+  xgboost_params:
+    n_estimators: 300
+    max_depth: 8
+    learning_rate: 0.1
+    random_state: 42
+    eval_metric: 'mlogloss'  # Will be overridden for binary classification
+
+# Note: Preprocessing section omitted as we use the br/none folders directly

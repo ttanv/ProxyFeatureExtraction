@@ -97,5 +97,10 @@ class DataIO:
         """Save relay batches of feature_type"""
         
         return self._save_batch(data_dfs, "relay", feature_type, batch_num)
+    
+    def save_gateway_batch(self, data_dfs, feature_type, batch_num):
+        """Save relay batches of feature_type"""
+        
+        return self._save_batch(data_dfs, "gateway", feature_type, batch_num)
 
     

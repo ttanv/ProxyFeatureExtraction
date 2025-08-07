@@ -44,3 +44,48 @@ class XGBoostClassifier:
         xgb_wrapper = cls(params={})
         xgb_wrapper.model = model
         return xgb_wrapper
+
+class MultiClassXGBoostClassifier:
+    """A wrapper for the XGBoost classifier for multi-class classification."""
+    def __init__(self, params: dict):
+        """
+        Initializes the multi-class XGBoost classifier with given parameters.
+
+        Args:
+            params (dict): A dictionary of hyperparameters for the XGBoost model.
+        """
+        params_copy = params.copy()
+        params_copy['objective'] = 'multi:softprob'
+        params_copy['num_class'] = 3
+        self.model = xgb.XGBClassifier(**params_copy)
+        
+    @property
+    def feature_importances_(self):
+        """Exposes the feature importances from the underlying XGBoost model."""
+        return self.model.feature_importances_
+
+    def fit(self, *args, **kwargs):
+        """Trains the model."""
+        self.model.fit(*args, **kwargs)
+        return self
+
+    def predict(self, X_test):
+        """Makes predictions."""
+        return self.model.predict(X_test)
+
+    def predict_proba(self, X_test):
+        """Makes probability predictions."""
+        return self.model.predict_proba(X_test)
+
+    def save(self, filepath: str):
+        """Saves the model to a file."""
+        self.model.save_model(filepath)
+
+    @classmethod
+    def load(cls, filepath: str):
+        """Loads a model from a file."""
+        model = xgb.XGBClassifier()
+        model.load_model(filepath)
+        xgb_wrapper = cls(params={})
+        xgb_wrapper.model = model
+        return xgb_wrapper

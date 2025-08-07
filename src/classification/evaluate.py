@@ -23,7 +23,16 @@ def evaluate_model(model, X_test, y_test, config: dict):
     y_pred = None
 
     if model_type == 'xgboost':
-        y_pred = model.predict(X_test)
+        # Handle both binary and multi-class XGBoost models
+        y_pred_raw = model.predict(X_test)
+        
+        # Check if predictions are probabilities (2D array) or labels (1D array)
+        if hasattr(y_pred_raw, 'ndim') and y_pred_raw.ndim == 2:
+            # Multi-class probabilities - convert to class labels
+            y_pred = np.argmax(y_pred_raw, axis=1)
+        else:
+            # Already class labels
+            y_pred = y_pred_raw
     
     elif model_type in ['cnn', 'transformer']:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -43,12 +52,36 @@ def evaluate_model(model, X_test, y_test, config: dict):
 
     # --- Calculate and Print Metrics ---   
     metrics = {}
-    print(confusion_matrix(y_test, y_pred))
-    tn, fp, _, _ = confusion_matrix(y_test, y_pred).ravel()
-    metrics['FPR'] = fp / (fp + tn)
-    metrics['precision'] = precision_score(y_test, y_pred, pos_label=1)
-    metrics['recall'] = recall_score(y_test, y_pred, pos_label=1)
-    metrics['f1'] = f1_score(y_test, y_pred, pos_label=1)
+    
+    # Print confusion matrix
+    cm = confusion_matrix(y_test, y_pred)
+    print("Confusion Matrix:")
+    print(cm)
+    
+    # Determine if this is binary or multiclass classification
+    num_classes = len(np.unique(y_test))
+    
+    if num_classes == 2:
+        # Binary classification metrics
+        tn, fp, fn, tp = cm.ravel()
+        metrics['FPR'] = fp / (fp + tn)
+        metrics['precision'] = precision_score(y_test, y_pred, pos_label=1)
+        metrics['recall'] = recall_score(y_test, y_pred, pos_label=1)
+        metrics['f1'] = f1_score(y_test, y_pred, pos_label=1)
+    else:
+        # Multiclass classification metrics (macro-averaged)
+        metrics['precision'] = precision_score(y_test, y_pred, average='macro')
+        metrics['recall'] = recall_score(y_test, y_pred, average='macro')
+        metrics['f1'] = f1_score(y_test, y_pred, average='macro')
+        
+        # Calculate per-class metrics
+        precision_per_class = precision_score(y_test, y_pred, average=None)
+        recall_per_class = recall_score(y_test, y_pred, average=None)
+        f1_per_class = f1_score(y_test, y_pred, average=None)
+        
+        print(f"\nPer-class metrics:")
+        for i in range(num_classes):
+            print(f"  Class {i}: Precision={precision_per_class[i]:.4f}, Recall={recall_per_class[i]:.4f}, F1={f1_per_class[i]:.4f}")
         
     print("Evaluation Metrics:")
     for name, value in metrics.items():
